@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace BankTransferService.Repo.Helper
+namespace BankTransferService.Repo.Dapper.Helper
 {
     public static class ParameterValidator
     {

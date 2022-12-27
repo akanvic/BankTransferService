@@ -1,10 +1,10 @@
-﻿using BankTransferService.Repo.Helper;
+﻿using BankTransferService.Repo.Dapper.Helper;
 using System;
 using System.Linq;
 using System.Reflection;
 using System.Text;
 
-namespace BankTransferService.Repo.Infrastructure
+namespace BankTransferService.Repo.Dapper.Infrastructure
 {
     public class Parameter<TEntity> : IParameter<TEntity> where TEntity : class
     {

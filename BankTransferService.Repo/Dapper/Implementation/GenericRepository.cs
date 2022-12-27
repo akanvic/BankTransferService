@@ -1,5 +1,5 @@
-﻿using BankTransferService.Repo.Helper;
-using BankTransferService.Repo.Infrastructure;
+﻿using BankTransferService.Repo.Dapper.Helper;
+using BankTransferService.Repo.Dapper.Infrastructure;
 using BankTransferService.Repo.Interface;
 using Dapper;
 using System;
@@ -9,7 +9,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using static Dapper.SqlMapper;
 
-namespace BankTransferService.Repo.Implementation
+namespace BankTransferService.Repo.Dapper.Implementation
 {
     public class GenericRepository<TEntity> : IDPGenericRepository<TEntity> where TEntity : class
     {

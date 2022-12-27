@@ -1,3 +1,7 @@
+using BankTransferService.Core.Entities;
+using BankTransferService.Repo.Data;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -6,6 +10,13 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.Configure<ReadConfig>(builder.Configuration.GetSection("ReadConfig"));
+
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+builder.Services.AddDbContext<BankDbContext>(options =>
+    options.UseSqlServer(connectionString));
 
 var app = builder.Build();
 

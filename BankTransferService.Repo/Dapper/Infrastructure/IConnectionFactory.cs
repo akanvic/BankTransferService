@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Data;
 
-namespace BankTransferService.Repo.Infrastructure
+namespace BankTransferService.Repo.Dapper.Infrastructure
 {
     public interface IConnectionFactory : IDisposable
     {

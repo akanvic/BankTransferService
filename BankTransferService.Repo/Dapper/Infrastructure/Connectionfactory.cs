@@ -3,7 +3,7 @@ using Microsoft.Extensions.Options;
 using System.Data;
 using System.Data.SqlClient;
 
-namespace BankTransferService.Repo.Infrastructure
+namespace BankTransferService.Repo.Dapper.Infrastructure
 {
     public class Connectionfactory : IConnectionFactory
     {

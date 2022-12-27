@@ -3,7 +3,7 @@ using System;
 using System.Data;
 using System.Linq;
 
-namespace BankTransferService.Repo.Infrastructure
+namespace BankTransferService.Repo.Dapper.Infrastructure
 {
     public class IDentityInspector<TEntity> : IIDentityInspector<TEntity> where TEntity : class
     {
