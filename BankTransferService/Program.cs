@@ -1,6 +1,11 @@
 using BankTransferService.Core.Entities;
 using BankTransferService.Repo.Data;
+using BankTransferService.Service.Implementation;
+using BankTransferService.Service.Interface;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,11 +17,44 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.Configure<ReadConfig>(builder.Configuration.GetSection("ReadConfig"));
+var config = builder.Configuration.GetSection("ReadConfig");
+ReadConfig readconfig = config.Get<ReadConfig>();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 builder.Services.AddDbContext<BankDbContext>(options =>
     options.UseSqlServer(connectionString));
+
+//JWT IMPLEMENTATION
+
+var secretKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(readconfig.Secret));
+builder.Services.AddAuthentication(option =>
+{
+    option.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    option.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+
+}).AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateLifetime = false,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = readconfig.Issuer,
+        ValidAudiences = new List<string>
+              {
+                readconfig.Audience1
+              },
+        IssuerSigningKey = secretKey
+    };
+});
+
+//SERVICES
+builder.Services.AddScoped<IUserAuthService, UserAuthService>();
+builder.Services.AddScoped<ITokenService, TokenService>();
+
+builder.Services.AddCors();
 
 var app = builder.Build();
 
@@ -27,8 +65,15 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+app.UseCors(configuration => configuration
+          .AllowAnyOrigin()
+          .AllowAnyMethod()
+          .AllowAnyHeader()
+          .WithExposedHeaders("Content-Disposition"));
 
+app.UseHttpsRedirection();
+app.UseRouting();
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
