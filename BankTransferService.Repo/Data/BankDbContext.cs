@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using BankTransferService.Core.Entities;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,5 +14,7 @@ namespace BankTransferService.Repo.Data
                                                         : base(options)
         {
         }
+
+        public DbSet<TransactionHistory> TransactionHistories { get; set; }
     }
 }

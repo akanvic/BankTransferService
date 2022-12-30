@@ -1,5 +1,8 @@
 using BankTransferService.Core.Entities;
+using BankTransferService.Repo.Dapper.Infrastructure;
 using BankTransferService.Repo.Data;
+using BankTransferService.Repo.Data.Repository.Implementations;
+using BankTransferService.Repo.Data.Repository.Interfaces;
 using BankTransferService.Service.Implementation;
 using BankTransferService.Service.Interface;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -20,10 +23,10 @@ builder.Services.Configure<ReadConfig>(builder.Configuration.GetSection("ReadCon
 var config = builder.Configuration.GetSection("ReadConfig");
 ReadConfig readconfig = config.Get<ReadConfig>();
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+//var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 builder.Services.AddDbContext<BankDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseSqlServer(readconfig.DefaultConnection));
 
 //JWT IMPLEMENTATION
 
@@ -53,7 +56,12 @@ builder.Services.AddAuthentication(option =>
 //SERVICES
 builder.Services.AddScoped<IUserAuthService, UserAuthService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
-
+builder.Services.AddScoped<IBankService, BankService>();
+builder.Services.AddScoped<ITransactionRepo, TransactionRepo>();
+builder.Services.AddScoped<ITransactionRepo, TransactionRepo>();
+builder.Services.AddSingleton<IConnectionFactory, Connectionfactory>();
+builder.Services.AddScoped<IFlutterwaveGateway, FlutterwaveGateway>();
+builder.Services.AddHttpClient();
 builder.Services.AddCors();
 
 var app = builder.Build();

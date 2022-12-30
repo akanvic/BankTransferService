@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using static BankTransferService.Repo.Dapper.Infrastructure.Connectionfactory;
@@ -31,10 +32,10 @@ namespace BankTransferService.Service.Implementation
                 new { EmailAddress = user.UserName, Password = user.Password});
 
             if (response == null)
-                return (new ResponseModel { Msg = "Invalid Login Details", State = 0 });
+                return (new ResponseModel { Msg = "Invalid Login Details", StatusCode= HttpStatusCode.BadRequest });
 
             var token = _tokenService.GenerateAccessToken(response);
-            return (new ResponseModel { Data = token, Msg = "Login Successful", State = 1 });
+            return (new ResponseModel { Data = token, Msg = "Login Successful", StatusCode = HttpStatusCode.BadRequest });
         }
     }
 }
