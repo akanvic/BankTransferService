@@ -18,11 +18,11 @@ using System.Threading.Tasks;
 
 namespace BankTransferService.Service.Implementation
 {
-    public class BankService : IBankService
+    public class PaystackGateway : IPaystackGateway
     {
         private readonly ITransactionRepo _transactionRepo;
         private readonly IHttpClientFactory _httpClientFactory;
-        public BankService(ITransactionRepo transactionRepo, IHttpClientFactory httpClientFactory)
+        public PaystackGateway(ITransactionRepo transactionRepo, IHttpClientFactory httpClientFactory)
         {
             _transactionRepo = transactionRepo;
             _httpClientFactory = httpClientFactory;
@@ -30,16 +30,9 @@ namespace BankTransferService.Service.Implementation
         
         public async Task<ResponseModel> GetBankList()
         {
-            
-            var baseUrl = Helper.PaystackBaseURL;
             var url = "bank?currency=NGN";
-            var client = _httpClientFactory.CreateClient();
-
-            client.BaseAddress = new Uri(baseUrl);
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + Helper.PaystackSecretKey);
-
+            HttpClient client = new HTTPClientHelper().Initialize(Helper.PaystackSecretKey, Helper.PaystackBaseURL, _httpClientFactory);
+            
             var response = await client.GetAsync(url);
             var responseContent = response.Content.ReadAsStringAsync().Result;
             var serviceResponse = JsonConvert.DeserializeObject<ServiceResponse>(responseContent);
@@ -52,16 +45,10 @@ namespace BankTransferService.Service.Implementation
 
         public async Task<ResponseModel> ValidateAccount(string accountNumber, string bankCode)
         {
-            var baseUrl = @$"https://api.paystack.co/bank/resolve?account_number={accountNumber}&bank_code={bankCode}";
-            var client = _httpClientFactory.CreateClient();
+            HttpClient client = new HTTPClientHelper().Initialize(Helper.PaystackSecretKey, Helper.PaystackBaseURL, _httpClientFactory);
+            var url = @$"bank/resolve?account_number={accountNumber}&bank_code={bankCode}";
 
-            client.BaseAddress = new Uri(baseUrl);
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + Helper.PaystackSecretKey);
-
-            var response = await client.GetAsync(baseUrl);
-
+            var response = await client.GetAsync(url);
             var responseContent = response.Content.ReadAsStringAsync().Result;
             var serviceResponse = JsonConvert.DeserializeObject<ValidatePaystackAccountResponse>(responseContent);
             
@@ -72,19 +59,15 @@ namespace BankTransferService.Service.Implementation
 
         public async Task<RecipientCreationResponse> CreateTransferReciepient(MainTransferRequest reciepientRequest)
         {
-            var baseUrl = @"https://api.paystack.co/transferrecipient";
+            string url = @"transferrecipient";
             RecipientCreationResponse serviceResponse = null;
-            var client = _httpClientFactory.CreateClient();
 
-            client.BaseAddress = new Uri(baseUrl);
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + Helper.PaystackSecretKey);
-
+            HttpClient client = new HTTPClientHelper().Initialize(Helper.PaystackSecretKey, Helper.PaystackBaseURL, _httpClientFactory);
+            
             var json = JsonConvert.SerializeObject(reciepientRequest);
             var stringContent = new StringContent(json, Encoding.UTF8, "application/json");
-
-            var response = await client.PostAsync("https://api.paystack.co/transferrecipient", stringContent);
+            
+            var response = await client.PostAsync(url, stringContent);
             var responseContent = response.Content.ReadAsStringAsync().Result;
             serviceResponse = JsonConvert.DeserializeObject<RecipientCreationResponse>(responseContent);
 
@@ -99,7 +82,7 @@ namespace BankTransferService.Service.Implementation
         {
             var recipientResponse = CreateTransferReciepient(transferRequest).Result;
             if(recipientResponse.Data is null)
-                return new ResponseModel { StatusCode = 0, Msg = recipientResponse.Message };
+                return new ResponseModel { StatusCode = HttpStatusCode.BadRequest, Msg = recipientResponse.Message };
 
             var checkBalanceResponse = CheckBalance().Result;
             var balanceInNaira = checkBalanceResponse.Data.FirstOrDefault().Balance / 100;
@@ -107,24 +90,20 @@ namespace BankTransferService.Service.Implementation
             if(balanceInNaira < transferRequest.amount)
                 return new ResponseModel { StatusCode = HttpStatusCode.BadRequest, Msg = "Insufficient Balance",Data=checkBalanceResponse };
 
-            var baseUrl = @"https://api.paystack.co/transfer";
-            var client = _httpClientFactory.CreateClient();
+            var url = @"transfer";
 
-            client.BaseAddress = new Uri(baseUrl);
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + Helper.PaystackSecretKey);
+            HttpClient client = new HTTPClientHelper().Initialize(Helper.PaystackSecretKey, Helper.PaystackBaseURL, _httpClientFactory);
 
-            transferRequest.TransactionReference = GenerateTransactionReference();
+            transferRequest.TransactionReference = Helper.GenerateTransactionReference();
             transferRequest.amount = transferRequest.amount * 100;
             transferRequest.recipient = recipientResponse.Data.recipient_code;
 
             var json = JsonConvert.SerializeObject(transferRequest);
             var stringContent = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await client.PostAsync(new Uri(baseUrl), stringContent);
+            var response = await client.PostAsync(url, stringContent);
 
-            var responseContent = response.Content.ReadAsStringAsync().Result;
+            var responseContent = await response.Content.ReadAsStringAsync();
             var serviceResponse = JsonConvert.DeserializeObject<TransferGenericResponse>(responseContent);
             
             if (response.IsSuccessStatusCode)
@@ -150,8 +129,8 @@ namespace BankTransferService.Service.Implementation
                          Thread.Sleep(backoffInterval);
 
                          // Make the request again
-                         var retryResponse = await client.PostAsync(new Uri(baseUrl), stringContent);
-                         var retryResponseContent = retryResponse.Content.ReadAsStringAsync().Result;
+                         var retryResponse = await client.PostAsync(new Uri(url), stringContent);
+                         var retryResponseContent = await retryResponse.Content.ReadAsStringAsync();
                          var retryServiceResponse = JsonConvert.DeserializeObject<TransferGenericResponse>(retryResponseContent);
 
                          if (retryServiceResponse.Data.Status.Equals("success"))
@@ -175,20 +154,12 @@ namespace BankTransferService.Service.Implementation
 
         private async Task<GenericCheckBalanceResponse> CheckBalance()
         {
-            var baseUrl = @"https://api.paystack.co/balance";
-            GenericCheckBalanceResponse serviceResponse = null;
+            var url = @"balance";
+            HttpClient client = new HTTPClientHelper().Initialize(Helper.PaystackSecretKey, Helper.PaystackBaseURL, _httpClientFactory);
 
-            var client = _httpClientFactory.CreateClient();
-
-            client.BaseAddress = new Uri(baseUrl);
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + Helper.PaystackSecretKey);
-
-            var response = await client.GetAsync(baseUrl);
-            var responseContent = response.Content.ReadAsStringAsync().Result;
-            serviceResponse = JsonConvert.DeserializeObject<GenericCheckBalanceResponse>(responseContent);
-
+            var response = await client.GetAsync(url);
+            var responseContent = await response.Content.ReadAsStringAsync();
+            GenericCheckBalanceResponse serviceResponse = JsonConvert.DeserializeObject<GenericCheckBalanceResponse>(responseContent);
             if (response.IsSuccessStatusCode)
             {
                 return serviceResponse;
@@ -198,27 +169,15 @@ namespace BankTransferService.Service.Implementation
 
         public async Task<ResponseModel> GetTransactionStatus(string reference)
         {
-            var baseUrl = @$"https://api.paystack.co/transfer/verify/{reference}";
-            GenericTransactionStatusReponse serviceResponse = null;
+            var url = @$"transfer/verify/{reference}";
+            HttpClient client = new HTTPClientHelper().Initialize(Helper.PaystackSecretKey, Helper.PaystackBaseURL, _httpClientFactory);
 
-            var client = _httpClientFactory.CreateClient();
+            var response = await client.GetAsync(url);
 
-            client.BaseAddress = new Uri(baseUrl);
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + Helper.PaystackSecretKey);
-
-            var response = await client.GetAsync(baseUrl);
-
-            var responseContent1 = response.Content.ReadAsStringAsync().Result;
-            serviceResponse = JsonConvert.DeserializeObject<GenericTransactionStatusReponse>(responseContent1);
-
+            var responseContent = await response.Content.ReadAsStringAsync();
+            GenericTransactionStatusReponse serviceResponse = JsonConvert.DeserializeObject<GenericTransactionStatusReponse>(responseContent);
             if (response.IsSuccessStatusCode)
-
             {
-                var responseContent = response.Content.ReadAsStringAsync().Result;
-
-                serviceResponse = JsonConvert.DeserializeObject<GenericTransactionStatusReponse>(responseContent);
                 serviceResponse.Data.Amount = serviceResponse.Data.Amount / 100;
 
                 if (serviceResponse.Data.TransactionStatus.Equals("success"))
@@ -256,18 +215,6 @@ namespace BankTransferService.Service.Implementation
             await _transactionRepo.CreateAsync(transactionHistory);
             await _transactionRepo.Save();
         }
-        private string GenerateTransactionReference()
-        {
-            Guid guid = Guid.NewGuid();
-
-            // Convert the GUID to a string with the format "N"
-            string uuid = guid.ToString("N");
-
-            // Truncate the string to 16 digits
-            string uuid16 = uuid.Substring(0, 16);
-
-            return uuid16;
-        }
-
+        
     }
 }

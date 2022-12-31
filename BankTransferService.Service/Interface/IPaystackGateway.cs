@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace BankTransferService.Service.Interface
 {
-    public interface IBankService
+    public interface IPaystackGateway
     {
         Task<ResponseModel> GetBankList();
         Task<ResponseModel> ValidateAccount(string accountNumber, string bankCode);

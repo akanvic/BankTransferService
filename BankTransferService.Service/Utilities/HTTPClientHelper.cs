@@ -9,22 +9,18 @@ namespace BankTransferService.Service.Utilities
 {
     public class HTTPClientHelper
     {
-        public HTTPClientHelper()
+        //private readonly IHttpClientFactory _httpClientFactory;
+        //public HTTPClientHelper(IHttpClientFactory httpClientFactory)
+        //{
+        //    _httpClientFactory = httpClientFactory;
+        //}
+        public HttpClient Initialize(string secretKey, string baseUrl, IHttpClientFactory httpClientFactory)
         {
-            ClientHandler = new HttpClientHandler();
-            ClientHandler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => { return true; };
-            client = new HttpClient(ClientHandler);
-        }
-
-        public HttpClientHandler ClientHandler { get; set; }
-
-        public HttpClient client { get; set; }
-
-        public HttpClient Initialize(string access_token)
-        {
+            var client = httpClientFactory.CreateClient();
+            client.BaseAddress = new Uri(baseUrl);
             client.DefaultRequestHeaders.Accept.Clear();
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("access_token", access_token);
+            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + secretKey);
             return client;
         }
     }

@@ -12,10 +12,10 @@ namespace BankTransferService.Controllers
     [ApiController]
     public class BankController : ControllerBase
     {
-        private readonly IBankService _bankService;
+        private readonly IPaystackGateway _bankService;
         private readonly IFlutterwaveGateway _flutterwaveGateway;
 
-        public BankController(IBankService bankService, IFlutterwaveGateway flutterwaveGateway)
+        public BankController(IPaystackGateway bankService, IFlutterwaveGateway flutterwaveGateway)
         {
             _bankService = bankService;
             _flutterwaveGateway = flutterwaveGateway;
