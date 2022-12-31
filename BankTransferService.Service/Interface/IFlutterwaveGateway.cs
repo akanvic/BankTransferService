@@ -1,4 +1,6 @@
 ﻿using BankTransferService.Core.Responses;
+using BankTransferService.Core.Responses.Flutterwave.Request;
+using BankTransferService.Core.Responses.Paystack.Request;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,7 +13,6 @@ namespace BankTransferService.Service.Interface
     {
         Task<ResponseModel> GetBankList();
         Task<ResponseModel> ValidateAccount(ValidateAccountRequest validateAccount);
-        Task<RecipientCreationResponse> CreateTransferReciepient(MainTransferRequest reciepientRequest);
         Task<ResponseModel> InitiateTransfer(MainTransferRequest transferRequest);
         Task<ResponseModel> GetTransactionStatus(string reference);
     }

@@ -1,4 +1,6 @@
 ﻿using BankTransferService.Core.Responses;
+using BankTransferService.Core.Responses.Paystack;
+using BankTransferService.Core.Responses.Paystack.Request;
 using System;
 using System.Collections.Generic;
 using System.Linq;

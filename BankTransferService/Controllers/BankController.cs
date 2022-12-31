@@ -1,4 +1,6 @@
 ﻿using BankTransferService.Core.Responses;
+using BankTransferService.Core.Responses.Flutterwave.Request;
+using BankTransferService.Core.Responses.Paystack.Request;
 using BankTransferService.Service.Interface;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
