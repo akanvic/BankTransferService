@@ -81,8 +81,8 @@ namespace BankTransferService.Service.Implementation
         public async Task<ResponseModel> InitiateTransfer(MainTransferRequest transferRequest)
         {
             var recipientResponse = CreateTransferReciepient(transferRequest).Result;
-            if(recipientResponse.Data is null)
-                return new ResponseModel { StatusCode = HttpStatusCode.BadRequest, Msg = recipientResponse.Message };
+            //if(recipientResponse.Data is null)
+            //    return new ResponseModel { StatusCode = HttpStatusCode.BadRequest, Msg = recipientResponse.Message };
 
             var checkBalanceResponse = CheckBalance().Result;
             var balanceInNaira = checkBalanceResponse.Data.FirstOrDefault().Balance / 100;
@@ -95,8 +95,9 @@ namespace BankTransferService.Service.Implementation
             HttpClient client = new HTTPClientHelper().Initialize(Helper.PaystackSecretKey, Helper.PaystackBaseURL, _httpClientFactory);
 
             transferRequest.TransactionReference = Helper.GenerateTransactionReference();
+
             transferRequest.amount = transferRequest.amount * 100;
-            transferRequest.recipient = recipientResponse.Data.recipient_code;
+            //transferRequest.recipient = recipientResponse.Data.recipient_code;
 
             var json = JsonConvert.SerializeObject(transferRequest);
             var stringContent = new StringContent(json, Encoding.UTF8, "application/json");
@@ -148,7 +149,7 @@ namespace BankTransferService.Service.Implementation
                  }
                  
              }
-             return new ResponseModel { StatusCode = response.StatusCode, Msg = "An Erro Occured Transfer was not successful" };
+             return new ResponseModel { StatusCode = response.StatusCode, Msg = serviceResponse.Message };
             
         }
 

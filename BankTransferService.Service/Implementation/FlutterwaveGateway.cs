@@ -25,15 +25,10 @@ namespace BankTransferService.Service.Implementation
 
         public async Task<ResponseModel> GetBankList()
         {
-            var baseUrl = @"https://api.flutterwave.com/v3/banks/NG";
-            var client = _httpClientFactory.CreateClient();
+            var url = @"banks/NG";
+            HttpClient client = new HTTPClientHelper().Initialize(Helper.FlutterwaveSecretKey, Helper.FlutterwavBaseURL, _httpClientFactory);
 
-            client.BaseAddress = new Uri(baseUrl);
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + Helper.FlutterwaveSecretKey);
-            
-            var response = await client.GetAsync(baseUrl);
+            var response = await client.GetAsync(url);
             var responseContent = response.Content.ReadAsStringAsync().Result;
             var serviceResponse = JsonConvert.DeserializeObject<ListOfBankResponse>(responseContent);
             
@@ -42,56 +37,38 @@ namespace BankTransferService.Service.Implementation
             return new ResponseModel { StatusCode = response.StatusCode, Msg = serviceResponse.Message };
         }
 
-        public async Task<ResponseModel> GetTransactionStatus(string reference)
+        public async Task<ResponseModel> GetTransactionStatus(string id)
         {
-            var baseUrl = @$"https://api.paystack.co/transfer/verify/{reference}";
-            GetTransactionStatusReponse serviceResponse = null;
+            var baseUrl = @$"https://api.flutterwave.com/v3/transfers/{id}";
+            GetTransactionStatusReponse serviceResponse = new GetTransactionStatusReponse();
 
-            var client = _httpClientFactory.CreateClient();
-
-            client.BaseAddress = new Uri(baseUrl);
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + Helper.FlutterwaveSecretKey);
+            HttpClient client = new HTTPClientHelper().Initialize(Helper.FlutterwaveSecretKey, Helper.FlutterwavBaseURL, _httpClientFactory);
 
             var response = await client.GetAsync(baseUrl);
 
-            var responseContent = response.Content.ReadAsStringAsync().Result;
+            var responseContent = await response.Content.ReadAsStringAsync();
             serviceResponse = JsonConvert.DeserializeObject<GetTransactionStatusReponse>(responseContent);
             
             if (response.IsSuccessStatusCode)
             {
                 serviceResponse.Data.Amount = serviceResponse.Data.Amount / 100;
 
-                if (serviceResponse.Data.TransactionStatus.Equals("success"))
-                    return new ResponseModel { StatusCode = response.StatusCode, Msg = "Transfer was successful", Data = serviceResponse };
-                else if (serviceResponse.Data.TransactionStatus.Equals("pending"))
-                    return new ResponseModel { StatusCode = response.StatusCode, Msg = "Transfer is pending", Data = serviceResponse };
-                else if (serviceResponse.Data.TransactionStatus.Equals("failed"))
-                    return new ResponseModel { StatusCode = response.StatusCode, Msg = "Transfer failed", Data = serviceResponse };
-                else if (serviceResponse.Data.TransactionStatus.Equals("reversed"))
-                    return new ResponseModel { StatusCode = response.StatusCode, Msg = "Transfer reversed", Data = serviceResponse };            
+                return new ResponseModel { StatusCode = response.StatusCode, Msg = serviceResponse.Message, Data = serviceResponse };            
             }
             return new ResponseModel { StatusCode = response.StatusCode, Msg = "Something went wrong, an error occured", Data = serviceResponse };
         }
 
         public async Task<ResponseModel> InitiateTransfer(MainTransferRequest transferRequest)
         {
-
-            var baseUrl = @"https://api.flutterwave.com/v3/transfers";
-            var client = _httpClientFactory.CreateClient();
-
-            client.BaseAddress = new Uri(baseUrl);
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + Helper.FlutterwaveSecretKey);
+            var url = "transfers";
+            HttpClient client = new HTTPClientHelper().Initialize(Helper.FlutterwaveSecretKey, Helper.FlutterwavBaseURL, _httpClientFactory);
 
             transferRequest.TransactionReference = Helper.GenerateTransactionReference();
 
             var json = JsonConvert.SerializeObject(transferRequest);
             var stringContent = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await client.PostAsync(new Uri(baseUrl), stringContent);
+            var response = await client.PostAsync(url, stringContent);
 
             var responseContent = response.Content.ReadAsStringAsync().Result;
 
@@ -120,7 +97,7 @@ namespace BankTransferService.Service.Implementation
                         Thread.Sleep(backoffInterval);
 
                         // Make the request again
-                        var retryResponse = await client.PostAsync(new Uri(baseUrl), stringContent);
+                        var retryResponse = await client.PostAsync(new Uri(url), stringContent);
                         var retryResponseContent = retryResponse.Content.ReadAsStringAsync().Result;
                         var retryServiceResponse = JsonConvert.DeserializeObject<InitiateTransferResponse>(retryResponseContent);
 
@@ -149,19 +126,13 @@ namespace BankTransferService.Service.Implementation
             VerifyBankAccountResponse responses = api.Miscellaneous.VerifyBankAccount
                 (validateAccount.AccountNumber, validateAccount.Code);
 
-            var baseUrl = @"https://api.flutterwave.com/v3/accounts/resolve";
-
-            var client = _httpClientFactory.CreateClient();
-
-            client.BaseAddress = new Uri(baseUrl);
-            client.DefaultRequestHeaders.Accept.Clear();
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Add("Authorization", "Bearer " + Helper.FlutterwaveSecretKey);
+            var url = @"accounts/resolve";
+            HttpClient client = new HTTPClientHelper().Initialize(Helper.FlutterwaveSecretKey, Helper.FlutterwavBaseURL, _httpClientFactory);
 
             var json = JsonConvert.SerializeObject(validateAccount);
             var stringContent = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await client.PostAsync(new Uri(baseUrl), stringContent);
+            var response = await client.PostAsync(url, stringContent);
             var responseContent = response.Content.ReadAsStringAsync().Result;
 
             var serviceResponse = JsonConvert.DeserializeObject<ValidateAccountResponse>(responseContent);

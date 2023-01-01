@@ -12,7 +12,7 @@ namespace BankTransferService.Core.Responses.Paystack.Request
         [JsonProperty(PropertyName = "bank_code")]
         public string BeneficiaryBankCode { get; set; }
         [JsonProperty(PropertyName = "account_bank")]
-        public string BeneficiaryBankCodeF { get; set; }
+        public string BeneficiaryBankCodeFlutterwave { get; set; }
         [JsonProperty(PropertyName = "currency")]
         public string CurrencyCode { get; set; } = "NGN";
 

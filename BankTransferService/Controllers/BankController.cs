@@ -104,7 +104,7 @@ namespace BankTransferService.Controllers
         {
             try
             {
-                var response = await _bankService.GetTransactionStatus(reference);
+                var response = await _flutterwaveGateway.GetTransactionStatus(reference);
 
                 if (response.StatusCode != HttpStatusCode.OK)
                 {
