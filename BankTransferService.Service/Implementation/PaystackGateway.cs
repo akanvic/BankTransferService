@@ -81,8 +81,8 @@ namespace BankTransferService.Service.Implementation
         public async Task<ResponseModel> InitiateTransfer(MainTransferRequest transferRequest)
         {
             var recipientResponse = CreateTransferReciepient(transferRequest).Result;
-            //if(recipientResponse.Data is null)
-            //    return new ResponseModel { StatusCode = HttpStatusCode.BadRequest, Msg = recipientResponse.Message };
+            if (recipientResponse.Data is null)
+                return new ResponseModel { StatusCode = HttpStatusCode.BadRequest, Msg = recipientResponse.Message };
 
             var checkBalanceResponse = CheckBalance().Result;
             var balanceInNaira = checkBalanceResponse.Data.FirstOrDefault().Balance / 100;
@@ -181,14 +181,7 @@ namespace BankTransferService.Service.Implementation
             {
                 serviceResponse.Data.Amount = serviceResponse.Data.Amount / 100;
 
-                if (serviceResponse.Data.TransactionStatus.Equals("success"))
-                    return new ResponseModel { StatusCode=response.StatusCode, Msg="Transfer was successful", Data=serviceResponse};
-                else if(serviceResponse.Data.TransactionStatus.Equals("pending"))
-                    return new ResponseModel { StatusCode = response.StatusCode, Msg = "Transfer is pending", Data = serviceResponse };
-                else if (serviceResponse.Data.TransactionStatus.Equals("failed"))
-                    return new ResponseModel { StatusCode = response.StatusCode, Msg = "Transfer failed", Data = serviceResponse };
-                else if (serviceResponse.Data.TransactionStatus.Equals("reversed"))
-                    return new ResponseModel { StatusCode = response.StatusCode, Msg = "Transfer reversed", Data = serviceResponse };
+                return new ResponseModel { StatusCode = response.StatusCode, Msg = serviceResponse.Message, Data = serviceResponse };
             }
             return new ResponseModel { StatusCode = response.StatusCode, Msg = "Something went wrong, an error occured", Data = serviceResponse };
         }

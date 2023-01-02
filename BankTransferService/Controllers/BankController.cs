@@ -12,12 +12,12 @@ namespace BankTransferService.Controllers
     [ApiController]
     public class BankController : ControllerBase
     {
-        private readonly IPaystackGateway _bankService;
+        private readonly IPaystackGateway _paystackGateway;
         private readonly IFlutterwaveGateway _flutterwaveGateway;
 
-        public BankController(IPaystackGateway bankService, IFlutterwaveGateway flutterwaveGateway)
+        public BankController(IPaystackGateway paystackGateway, IFlutterwaveGateway flutterwaveGateway)
         {
-            _bankService = bankService;
+            _paystackGateway = paystackGateway;
             _flutterwaveGateway = flutterwaveGateway;
         }
 
@@ -28,12 +28,12 @@ namespace BankTransferService.Controllers
             {
                 ResponseModel response = null;
                 if(provider.Equals("paystack"))
-                    response = await _bankService.GetBankList();
+                    response = await _paystackGateway.GetBankList();
 
                 else if (provider.Equals("flutterwave"))
                     response = await _flutterwaveGateway.GetBankList();
                 else
-                    response = await _bankService.GetBankList();
+                    response = await _paystackGateway.GetBankList();
 
                 if (response.StatusCode != HttpStatusCode.OK)
                 {
@@ -54,12 +54,12 @@ namespace BankTransferService.Controllers
             {
                 ResponseModel response = null;
                 if (validateAccount.Provider.Equals("paystack"))
-                    response = await _bankService.ValidateAccount(validateAccount.AccountNumber, validateAccount.Code);
+                    response = await _paystackGateway.ValidateAccount(validateAccount.AccountNumber, validateAccount.Code);
 
                 else if (validateAccount.Provider.Equals("flutterwave"))
                      response = await _flutterwaveGateway.ValidateAccount(validateAccount);
                 else
-                    response = await _bankService.ValidateAccount(validateAccount.AccountNumber, validateAccount.AccountNumber);
+                    response = await _paystackGateway.ValidateAccount(validateAccount.AccountNumber, validateAccount.AccountNumber);
 
                 if (response.StatusCode != HttpStatusCode.OK)
                 {
@@ -80,12 +80,12 @@ namespace BankTransferService.Controllers
             {
                 ResponseModel response = null;
                 if (transferRequest.Provider.Equals("paystack"))
-                    response = await _bankService.InitiateTransfer(transferRequest);
+                    response = await _paystackGateway.InitiateTransfer(transferRequest);
 
                 else if (transferRequest.Provider.Equals("flutterwave"))
                     response = await _flutterwaveGateway.InitiateTransfer(transferRequest);
                 else
-                    response = await _bankService.InitiateTransfer(transferRequest);
+                    response = await _paystackGateway.InitiateTransfer(transferRequest);
 
                 if (response.StatusCode != HttpStatusCode.OK)
                 {
@@ -100,11 +100,18 @@ namespace BankTransferService.Controllers
         }
 
         [HttpGet("GetTransactionStatus")]
-        public async Task<IActionResult> GetTransactionStatus(string reference)
+        public async Task<IActionResult> GetTransactionStatus(string reference, string provider)
         {
             try
             {
-                var response = await _flutterwaveGateway.GetTransactionStatus(reference);
+                ResponseModel response = null;
+
+                if (provider.Equals("paystack"))
+                    response = await _paystackGateway.GetTransactionStatus(reference);
+                else if (provider.Equals("flutterwave"))
+                    response = await _flutterwaveGateway.GetTransactionStatus(reference);
+                else
+                    response = await _paystackGateway.GetTransactionStatus(reference);
 
                 if (response.StatusCode != HttpStatusCode.OK)
                 {
