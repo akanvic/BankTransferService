@@ -97,7 +97,7 @@ namespace BankTransferService.Service.Implementation
             transferRequest.TransactionReference = Helper.GenerateTransactionReference();
 
             transferRequest.amount = transferRequest.amount * 100;
-            //transferRequest.recipient = recipientResponse.Data.recipient_code;
+            transferRequest.recipient = recipientResponse.Data.recipient_code;
 
             var json = JsonConvert.SerializeObject(transferRequest);
             var stringContent = new StringContent(json, Encoding.UTF8, "application/json");
