@@ -1,13 +1,19 @@
-﻿using BankTransferService.Core.Responses;
+﻿using BankTransferService.Core.Entities;
+using BankTransferService.Core.Responses;
 using BankTransferService.Core.Responses.Flutterwave.Request;
+using BankTransferService.Core.Responses.Paystack;
 using BankTransferService.Core.Responses.Paystack.Request;
+using BankTransferService.Repo.Data.Repository.Interfaces;
 using BankTransferService.Service.Interface;
 using BankTransferService.Service.Utilities;
 using Flutterwave.Net;
 using Newtonsoft.Json;
+using Polly;
+using Polly.Contrib.WaitAndRetry;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
@@ -17,10 +23,16 @@ namespace BankTransferService.Service.Implementation
     public class FlutterwaveGateway : IFlutterwaveGateway
     {
         private readonly IHttpClientFactory _httpClientFactory;
-
-        public FlutterwaveGateway(IHttpClientFactory httpClientFactory)
+        private readonly ITransactionRepo _transactionRepo;
+        private readonly IAsyncPolicy<HttpResponseMessage> _retryPolicy =
+                            Policy<HttpResponseMessage>
+                                .Handle<HttpRequestException>()
+                                .OrResult(c => c.StatusCode >= HttpStatusCode.InternalServerError || HttpStatusCode.RequestTimeout == c.StatusCode)
+                                .WaitAndRetryAsync(Backoff.ExponentialBackoff(TimeSpan.FromSeconds(1), 5));
+        public FlutterwaveGateway(IHttpClientFactory httpClientFactory, ITransactionRepo transactionRepo)
         {
             _httpClientFactory = httpClientFactory;
+            _transactionRepo = transactionRepo;
         }
 
         public async Task<ResponseModel> GetBankList()
@@ -39,16 +51,15 @@ namespace BankTransferService.Service.Implementation
 
         public async Task<ResponseModel> GetTransactionStatus(string id)
         {
-            var baseUrl = @$"https://api.flutterwave.com/v3/transfers/{id}";
-            GetTransactionStatusReponse serviceResponse = new GetTransactionStatusReponse();
+            var url = @$"transfers/{id}";
 
             HttpClient client = new HTTPClientHelper().Initialize(Helper.FlutterwaveSecretKey, Helper.FlutterwavBaseURL, _httpClientFactory);
 
-            var response = await client.GetAsync(baseUrl);
+            var response = await client.GetAsync(url);
 
             var responseContent = await response.Content.ReadAsStringAsync();
-            serviceResponse = JsonConvert.DeserializeObject<GetTransactionStatusReponse>(responseContent);
-            
+            GetTransactionStatusReponse serviceResponse = JsonConvert.DeserializeObject<GetTransactionStatusReponse>(responseContent);
+
             if (response.IsSuccessStatusCode)
             {
                 serviceResponse.Data.Amount = serviceResponse.Data.Amount / 100;
@@ -68,7 +79,7 @@ namespace BankTransferService.Service.Implementation
             var json = JsonConvert.SerializeObject(transferRequest);
             var stringContent = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await client.PostAsync(url, stringContent);
+            var response = await _retryPolicy.ExecuteAsync(() => client.PostAsync(url, stringContent));
 
             var responseContent = response.Content.ReadAsStringAsync().Result;
 
@@ -78,7 +89,7 @@ namespace BankTransferService.Service.Implementation
             {
                 if (serviceResponse.Data.Status.Equals("NEW"))
                 {
-                    //await SaveTransaction(transferRequest, serviceResponse, recipientResponse);
+                    await SaveTransaction(transferRequest, serviceResponse);
                     return new ResponseModel { StatusCode = response.StatusCode, Msg = serviceResponse.Message, Data = serviceResponse }; ;
                 }
                 else
@@ -97,8 +108,8 @@ namespace BankTransferService.Service.Implementation
                         Thread.Sleep(backoffInterval);
 
                         // Make the request again
-                        var retryResponse = await client.PostAsync(new Uri(url), stringContent);
-                        var retryResponseContent = retryResponse.Content.ReadAsStringAsync().Result;
+                        var retryResponse = await _retryPolicy.ExecuteAsync(() => client.PostAsync(url, stringContent));
+                        var retryResponseContent = await retryResponse.Content.ReadAsStringAsync();
                         var retryServiceResponse = JsonConvert.DeserializeObject<InitiateTransferResponse>(retryResponseContent);
 
                         if (retryServiceResponse.Data.Status.Equals("New"))
@@ -121,11 +132,6 @@ namespace BankTransferService.Service.Implementation
 
         public async Task<ResponseModel> ValidateAccount(ValidateAccountRequest validateAccount)
         {
-            FlutterwaveApi api = new FlutterwaveApi(Helper.FlutterwaveSecretKey);
-
-            VerifyBankAccountResponse responses = api.Miscellaneous.VerifyBankAccount
-                (validateAccount.AccountNumber, validateAccount.Code);
-
             var url = @"accounts/resolve";
             HttpClient client = new HTTPClientHelper().Initialize(Helper.FlutterwaveSecretKey, Helper.FlutterwavBaseURL, _httpClientFactory);
 
@@ -133,7 +139,7 @@ namespace BankTransferService.Service.Implementation
             var stringContent = new StringContent(json, Encoding.UTF8, "application/json");
 
             var response = await client.PostAsync(url, stringContent);
-            var responseContent = response.Content.ReadAsStringAsync().Result;
+            var responseContent = await response.Content.ReadAsStringAsync();
 
             var serviceResponse = JsonConvert.DeserializeObject<ValidateAccountResponse>(responseContent);
 
@@ -142,6 +148,30 @@ namespace BankTransferService.Service.Implementation
                 return new ResponseModel { StatusCode = response.StatusCode, Msg = serviceResponse.Message, Data = serviceResponse };
             }
             return new ResponseModel { StatusCode = response.StatusCode, Msg = serviceResponse.Message };
+        }
+
+        private async Task SaveTransaction(MainTransferRequest transferRequest,
+            InitiateTransferResponse serviceResponse)
+        {
+            TransactionHistory transactionHistory = new()
+            {
+                RecipientName = transferRequest.BeneficiaryAccountName,
+                RecipientBank = transferRequest.BeneficiaryBankCodeFlutterwave,
+                RecipientAcccountNumber = transferRequest.BeneficiaryAccountNumber,
+                RecipientBankCode = transferRequest.BeneficiaryBankCodeFlutterwave,
+                TransactionReference = serviceResponse.Data.Reference,
+                TransactionStatus = serviceResponse.Data.Status,
+                Currency = serviceResponse.Data.Currency,
+                Source = transferRequest.source,
+                Reason = transferRequest.Narration,
+                DateCreated = serviceResponse.Data.CreatedAt,
+                TransferCode = serviceResponse.Data.Id.ToString(),
+                MaxRetryAttempt = transferRequest.MaxRetryAttempt,
+                Provider = transferRequest.Provider,
+            };
+
+            await _transactionRepo.CreateAsync(transactionHistory);
+            await _transactionRepo.Save();
         }
     }
 }

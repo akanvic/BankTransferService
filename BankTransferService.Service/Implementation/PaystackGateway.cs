@@ -7,6 +7,7 @@ using BankTransferService.Service.Interface;
 using BankTransferService.Service.Utilities;
 using Newtonsoft.Json;
 using Polly;
+using Polly.Contrib.WaitAndRetry;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,6 +23,11 @@ namespace BankTransferService.Service.Implementation
     {
         private readonly ITransactionRepo _transactionRepo;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IAsyncPolicy<HttpResponseMessage> _retryPolicy =
+            Policy<HttpResponseMessage>
+                .Handle<HttpRequestException>()
+                .OrResult(c => c.StatusCode >= HttpStatusCode.InternalServerError || HttpStatusCode.RequestTimeout == c.StatusCode)
+                .WaitAndRetryAsync(Backoff.ExponentialBackoff(TimeSpan.FromSeconds(1),5 ));
         public PaystackGateway(ITransactionRepo transactionRepo, IHttpClientFactory httpClientFactory)
         {
             _transactionRepo = transactionRepo;
@@ -34,7 +40,7 @@ namespace BankTransferService.Service.Implementation
             HttpClient client = new HTTPClientHelper().Initialize(Helper.PaystackSecretKey, Helper.PaystackBaseURL, _httpClientFactory);
             
             var response = await client.GetAsync(url);
-            var responseContent = response.Content.ReadAsStringAsync().Result;
+            var responseContent = await response.Content.ReadAsStringAsync();
             var serviceResponse = JsonConvert.DeserializeObject<ServiceResponse>(responseContent);
 
             if (response.IsSuccessStatusCode)
@@ -49,7 +55,7 @@ namespace BankTransferService.Service.Implementation
             var url = @$"bank/resolve?account_number={accountNumber}&bank_code={bankCode}";
 
             var response = await client.GetAsync(url);
-            var responseContent = response.Content.ReadAsStringAsync().Result;
+            var responseContent = await response.Content.ReadAsStringAsync();
             var serviceResponse = JsonConvert.DeserializeObject<ValidatePaystackAccountResponse>(responseContent);
             
             if (response.IsSuccessStatusCode)
@@ -57,20 +63,17 @@ namespace BankTransferService.Service.Implementation
             return new ResponseModel { StatusCode = response.StatusCode, Msg = serviceResponse.Message };
         }
 
-        public async Task<RecipientCreationResponse> CreateTransferReciepient(MainTransferRequest reciepientRequest)
+        private async Task<RecipientCreationResponse> CreateTransferReciepient(MainTransferRequest reciepientRequest)
         {
             string url = @"transferrecipient";
-            RecipientCreationResponse serviceResponse = null;
-
             HttpClient client = new HTTPClientHelper().Initialize(Helper.PaystackSecretKey, Helper.PaystackBaseURL, _httpClientFactory);
             
             var json = JsonConvert.SerializeObject(reciepientRequest);
             var stringContent = new StringContent(json, Encoding.UTF8, "application/json");
             
             var response = await client.PostAsync(url, stringContent);
-            var responseContent = response.Content.ReadAsStringAsync().Result;
-            serviceResponse = JsonConvert.DeserializeObject<RecipientCreationResponse>(responseContent);
-
+            var responseContent = await response.Content.ReadAsStringAsync();
+            RecipientCreationResponse serviceResponse = JsonConvert.DeserializeObject<RecipientCreationResponse>(responseContent);
             if (response.IsSuccessStatusCode)
             {
                 return serviceResponse;
@@ -102,7 +105,7 @@ namespace BankTransferService.Service.Implementation
             var json = JsonConvert.SerializeObject(transferRequest);
             var stringContent = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await client.PostAsync(url, stringContent);
+            var response = await _retryPolicy.ExecuteAsync(() => client.PostAsync(url, stringContent));
 
             var responseContent = await response.Content.ReadAsStringAsync();
             var serviceResponse = JsonConvert.DeserializeObject<TransferGenericResponse>(responseContent);
@@ -130,7 +133,7 @@ namespace BankTransferService.Service.Implementation
                          Thread.Sleep(backoffInterval);
 
                          // Make the request again
-                         var retryResponse = await client.PostAsync(new Uri(url), stringContent);
+                         var retryResponse = await  _retryPolicy.ExecuteAsync(() => client.PostAsync(url, stringContent));
                          var retryResponseContent = await retryResponse.Content.ReadAsStringAsync();
                          var retryServiceResponse = JsonConvert.DeserializeObject<TransferGenericResponse>(retryResponseContent);
 
@@ -203,7 +206,8 @@ namespace BankTransferService.Service.Implementation
                 DateUpdated = serviceResponse.Data.updatedAt,
                 SessionId = serviceResponse.Data.SessionId,
                 TransferCode = serviceResponse.Data.TransferCode,
-                MaxRetryAttempt = transferRequest.MaxRetryAttempt
+                MaxRetryAttempt = transferRequest.MaxRetryAttempt,
+                Provider = transferRequest.Provider,
             };
 
             await _transactionRepo.CreateAsync(transactionHistory);

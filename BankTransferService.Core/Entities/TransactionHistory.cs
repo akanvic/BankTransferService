@@ -18,12 +18,13 @@ namespace BankTransferService.Core.Entities
         public string TransactionReference { get; set; }
         public string TransferCode { get; set; }
         public string TransactionStatus { get; set; }
-        public string Currency { get; set; }
-        public string Source { get; set; }
+        public string? Currency { get; set; }
+        public string? Source { get; set; }
         public string? Reason { get; set; }
-        public DateTime DateCreated { get; set; }
-        public DateTime DateUpdated { get; set; }
-        public string SessionId { get; set; }
+        public DateTime? DateCreated { get; set; }
+        public DateTime? DateUpdated { get; set; }
+        public string? SessionId { get; set; }
         public int? MaxRetryAttempt { get; set; }
+        public string? Provider { get; set; }
     }
 }

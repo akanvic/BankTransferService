@@ -1,4 +1,6 @@
-﻿using System;
+﻿using BankTransferService.Core.Responses;
+using BankTransferService.Service.Interface;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -20,6 +22,20 @@ namespace BankTransferService.Service.Utilities
 
             return uuid16;
         }
+        //public static async Task<ResponseModel> GetTransferProvider(string provider, 
+        //    dynamic transferRequest, IFlutterwaveGateway flutterwaveGateway, IPaystackGateway paystackGateway)
+        //{
+        //    ResponseModel response;
+        //    if (provider.Equals("paystack"))
+        //        response = await paystackGateway.InitiateTransfer(transferRequest);
+
+        //    else if (provider.Equals("flutterwave"))
+        //        response =  await flutterwaveGateway.InitiateTransfer(transferRequest);
+        //    else
+        //        response = await paystackGateway.InitiateTransfer(transferRequest);
+
+        //    return response;
+        //}
         public const string PaystackBaseURL = @"https://api.paystack.co/";
         public const string FlutterwavBaseURL = @"https://api.flutterwave.com/v3/";
         public const string PaystackSecretKey = "sk_test_877f399e799d8bb2b162e8ea631fc89a17b977cc";

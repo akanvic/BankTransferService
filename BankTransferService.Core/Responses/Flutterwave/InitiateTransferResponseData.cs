@@ -6,7 +6,7 @@
         public string AccountNumber { get; set; }
         public string BankCode { get; set; }
         public string FullName { get; set; }
-        public string CreatedAt { get; set; }
+        public DateTime CreatedAt { get; set; }
         public string DebitCurrency { get; set; }
         public string CompleteMessage { get; set; }
         public byte RequiresApproval { get; set; }
